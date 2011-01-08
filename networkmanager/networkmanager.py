@@ -221,17 +221,16 @@ def netmask_to_prefixlen(netmask):
 
 class Device(object):
     _NM_INTERFACE = NM_DEVICE
-
     def __new__(cls, bus, path):
         _subclasses = {
-            DeviceType.ETHERNET: DeviceWired,
-            DeviceType.WIFI: DeviceWireless,
-            DeviceType.CDMA: DeviceCdma,
+            DeviceType.ETHERNET : DeviceWired,
+            DeviceType.WIFI     : DeviceWireless,
+            DeviceType.CDMA     : DeviceCdma,
         }
         device = bus.get_object(NM_NAME, path)
-        type = DeviceType.from_value(device.Get(NM_DEVICE, 'DeviceType'))
+        _type = DeviceType.from_value(device.Get(NM_DEVICE, 'DeviceType'))
         try:
-            cls = _subclasses[type]
+            cls = _subclasses[_type]
         except KeyError:
             cls = Device
 
@@ -255,11 +254,11 @@ class Device(object):
 
     @property
     def udi(self):
-        return self._proxy_get("Udi")
+        return self.proxy.Get(NM_DEVICE, "Udi")
 
     @property
     def interface(self):
-        return self._proxy_get("Interface")
+        return self.proxy.Get(NM_DEVICE, "Interface")
 
     @property
     def hwaddress(self):
@@ -267,12 +266,12 @@ class Device(object):
 
     @property
     def driver(self):
-        return self._proxy_get("Driver")
+        return self.proxy.Get(NM_DEVICE, "Driver")
 
     @property
     def capabilities(self):
         caps = []
-        value = self._proxy_get("Capabilities")
+        value = self.proxy.Get(NM_DEVICE, "Capabilities")
         if value & 0x01:
             caps.append(DeviceCap.SUPPORTED)
         if value & 0x02:
@@ -286,7 +285,7 @@ class Device(object):
 
     @property
     def state(self):
-        return DeviceState.from_value(self._proxy_get("State"))
+        return DeviceState.from_value(self.proxy.Get(NM_DEVICE, "State"))
 
     @property
     def ip4config(self):
@@ -302,11 +301,11 @@ class Device(object):
 
     @property
     def managed(self):
-        return self._proxy_get("Managed") == 1
+        return self.proxy.Get(NM_DEVICE, "Managed") == 1
 
     @property
     def type(self):
-        return DeviceType.from_value(self._proxy_get("DeviceType"))
+        return DeviceType.from_value(self.proxy.Get(NM_DEVICE, "DeviceType"))
 
 class DeviceWired(Device):
     _NM_INTERFACE = NM_DEVICE_WIRED
@@ -539,17 +538,39 @@ class NetworkManager(object):
 
     @property
     def active_connections(self):
-        return [ActiveConnection(self.bus, path)
-        for path in self.proxy.Get(NM_SETTINGS_CONNECTION, "ActiveConnections")]
+        return [ActiveConnection(self.bus, path) \
+                    for path in self.proxy.Get(NM_NAME, "ActiveConnections")]
 
     def add_connection(self, settings):
         self.settings.AddConnection(settings._settings, dbus_interface=NM_SETTINGS_NAME)
 
-    def activate_connection(self, connection, device, service_name="org.freedesktop.NetworkManagerSystemSettings", specific_object="/"):
+    def activate_connection(self, connection, device=None, service_name="org.freedesktop.NetworkManagerSystemSettings", specific_object="/", guess_device=False, interface=None):
+        if not device and interface:
+            for device in self.devices:
+                if device.interface == interface:
+                    conn_mac_addr = connection.settings.mac_address
+                    if conn_mac_addr is None or str(conn_mac_addr) == str(device.hwaddress):
+                        break
+                device = None
+
+        if guess_device:
+            if connection.settings.mac_address:
+                device = self.get_device(mac_address = connection.settings.mac_address)
+
+        if not device:
+            return
+
         self.proxy.ActivateConnection(service_name, connection.proxy, device.proxy, specific_object, dbus_interface=NM_NAME)
 
     def deactivate_connection(self, active_connection):
         self.proxy.DeactivateConnection(active_connection, dbus_interface=NM_NAME)
+
+    def disconnect_connection_devices(self, connection):
+        for active_conn in self.active_connections:
+            if active_conn.connection.settings.id == connection.settings.id:
+                for device in active_conn.devices:
+                    device.disconnect()
+                break
 
     @property
     def wireless_enabled(self):
@@ -579,7 +600,36 @@ class NetworkManager(object):
         """
         return State.from_value(self.proxy.Get(NM_NAME, "State"))
 
-class ActiveConnection():
+    def get_device(self, type=None, mac_address=None):
+        """
+        Return device object from given mac_address or first device for given type
+        """
+        types = {
+                        '802-11-wireless'   : DeviceType.WIFI,
+                        '802-3-ethernet'    : DeviceType.ETHERNET,
+                    #   'cdma'              : [],
+                    #   'gsm'               : [],
+                    #   'unknown'           : [],
+                }
+
+        devices = None
+        if not type == None:
+            device_type = types[type]
+            devices = self.devices_map[device_type]
+        else:
+            devices = self.devices
+
+        if not mac_address == None:
+            for dev in devices:
+                if mac_address == dev.hwaddress:
+                    return dev
+
+        if len(devices) > 0:
+            return devices[0]
+
+        return None
+
+class ActiveConnection(object):
     _NM_INTERFACE = NM_CONN_ACTIVE
 
     def __init__(self, bus, path):
@@ -622,7 +672,7 @@ class ActiveConnection():
     def vpn(self):
         return self._proxy_get("Vpn")
 
-class Connection():
+class Connection(object):
     def __init__(self, bus, path):
         self.proxy = bus.get_object(NM_NAME, path);
 
@@ -732,7 +782,10 @@ def Settings(settings):
         if settings.id is None:
             settings.id = 'CDMA Connection'
     else:
-        raise UnsupportedConnectionType("Unknown connection type: '%s'" % conn_type)
+        #raise UnsupportedConnectionType("Unknown connection type: '%s'" % conn_type)
+        settings = BaseSettings(settings)
+        if settings.id is None:
+            settings.id = "Unknown Connection"
 
     return settings
 
@@ -756,7 +809,8 @@ class BaseSettings(object):
         within this connection. No addresses usually indicates
         autoconfiguration
         """
-        if not 'ipv4' in self._settings: return False
+        if 'ipv4' not in self._settings:
+            return False
         return len(self._settings['ipv4']['addresses']) > 0
 
     def _get_first_address(self):
