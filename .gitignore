@@ -1,5 +1,5 @@
 *.swp
-Session.vim
 *.pkg.tar.*
 *.src.tar.gz
 tags
+build

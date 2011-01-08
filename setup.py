@@ -49,7 +49,7 @@ interacting with network manager to control network configuration
 tasks""",
           keywords=["network-manager", "DBus"],
           packages=["networkmanager"],
-          scripts=['nm-util'],
+          scripts=['nm-util', 'network'],
           data_files=[('/etc/bash_completion.d', ['bash_completion/nm-util']),])
 
 if __name__ == "__main__": main()
