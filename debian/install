@@ -1,3 +1,0 @@
-networkmanager /usr/share/pyshared
-nm-util /usr/bin
-bash_completion/nm-util /etc/bash_completion.d
