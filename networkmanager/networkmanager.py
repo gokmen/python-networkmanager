@@ -515,6 +515,11 @@ class NetworkManager(object):
                     for path in self.proxy.Get(NM_NAME, "ActiveConnections")]
 
     @property
+    def available_connections(self):
+        """ Returns a list of available connections. """
+        return filter(lambda connection: self.get_device_for_connection(connection).state.value > 2, self.connections)
+
+    @property
     def connections_map(self):
         """
             Returns a dict where the keys are uuids and the values are the
@@ -580,15 +585,8 @@ class NetworkManager(object):
             If no devices provided it will try to find proper device.
         """
 
-        # If connection has mac_address and not device given
-        # Try to find proper device for this mac
-        if connection.settings.mac_address and not device:
-            device = self.get_device(mac_address = connection.settings.mac_address)
-
-        # If still there is no device available
-        # Try to find proper device for given connection by using its type
         if not device:
-            device = self.get_device(type = str(connection.settings.type))
+            device = self.get_device_for_connection(connection)
 
         self.proxy.ActivateConnection(service_name, connection.proxy, device.proxy, specific_object, dbus_interface=NM_NAME)
 
@@ -650,6 +648,22 @@ class NetworkManager(object):
                     return device
 
         return None
+
+    def get_device_for_connection(self, connection):
+        """ Returns a device which proper for given connection """
+
+        device = None
+        # If connection has mac_address
+        # Try to find proper device for this mac
+        if connection.settings.mac_address:
+            device = self.get_device(mac_address = connection.settings.mac_address)
+
+        # If still there is no device available
+        # Try to find proper device for given connection by using its type
+        if not device:
+            device = self.get_device(type = str(connection.settings.type))
+
+        return device
 
 class ActiveConnection(object):
     _NM_INTERFACE = NM_CONN_ACTIVE
