@@ -509,6 +509,11 @@ class NetworkManager(object):
         for path in self.settings.ListConnections(dbus_interface=NM_SETTINGS_NAME)]
 
     @property
+    def active_connections(self):
+        return [ActiveConnection(self.bus, path) \
+                    for path in self.proxy.Get(NM_NAME, "ActiveConnections")]
+
+    @property
     def connections_map(self):
         """
         Returns a dict where the keys are uuids and the values are the
@@ -521,6 +526,34 @@ class NetworkManager(object):
             connections[str(conn.settings.uuid)] = conn
 
         return connections
+
+    @property
+    def wireless_enabled(self):
+        """Indicates if wireless is currently enabled or not."""
+        return self.proxy.Get(NM_NAME, "WirelessEnabled",
+            dbus_interface=DBUS_PROPS_NAME) != 0
+
+    @wireless_enabled.setter
+    def wireless_enabled(self, state):
+        """Sets whether wireless should be enabled or not."""
+        self.proxy.Set(NM_NAME, "WirelessEnabled", dbus.Boolean(state),
+            dbus_interface=DBUS_PROPS_NAME)
+
+    @property
+    def wireless_hardware_enabled(self):
+        """
+        Indicates if the wireless hardware is currently
+        enabled, i.e. the state of the RF kill switch.
+        """
+        return self.proxy.Get(NM_NAME, "WirelessHardwareEnabled",
+            dbus_interface=DBUS_PROPS_NAME) != 0
+
+    @property
+    def state(self):
+        """
+        Describes the overall state of the daemon.
+        """
+        return State.from_value(self.proxy.Get(NM_NAME, "State"))
 
     def get_connection(self, uuid):
         """
@@ -535,11 +568,6 @@ class NetworkManager(object):
         if no connections exist with that id
         """
         return filter(lambda con: con.settings.id == id, self.connections) or None
-
-    @property
-    def active_connections(self):
-        return [ActiveConnection(self.bus, path) \
-                    for path in self.proxy.Get(NM_NAME, "ActiveConnections")]
 
     def add_connection(self, settings):
         self.settings.AddConnection(settings._settings, dbus_interface=NM_SETTINGS_NAME)
@@ -569,34 +597,6 @@ class NetworkManager(object):
                 for device in active_conn.devices:
                     device.disconnect()
                 break
-
-    @property
-    def wireless_enabled(self):
-        """Indicates if wireless is currently enabled or not."""
-        return self.proxy.Get(NM_NAME, "WirelessEnabled",
-            dbus_interface=DBUS_PROPS_NAME) != 0
-
-    @wireless_enabled.setter
-    def wireless_enabled(self, state):
-        """Sets whether wireless should be enabled or not."""
-        self.proxy.Set(NM_NAME, "WirelessEnabled", dbus.Boolean(state),
-            dbus_interface=DBUS_PROPS_NAME)
-
-    @property
-    def wireless_hardware_enabled(self):
-        """
-        Indicates if the wireless hardware is currently
-        enabled, i.e. the state of the RF kill switch.
-        """
-        return self.proxy.Get(NM_NAME, "WirelessHardwareEnabled",
-            dbus_interface=DBUS_PROPS_NAME) != 0
-
-    @property
-    def state(self):
-        """
-        Describes the overall state of the daemon.
-        """
-        return State.from_value(self.proxy.Get(NM_NAME, "State"))
 
     def get_device(self, type=None, mac_address=None, interface=None):
         """
