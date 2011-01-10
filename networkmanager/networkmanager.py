@@ -481,16 +481,15 @@ class NetworkManager(object):
     @property
     def devices(self):
         """
-        Returns a list of devices known to the system
+            Returns a list of devices known to the system.
         """
-        # TODO: return dict keyed by dev
         return [Device(self.bus, path) for path in self.proxy.GetDevices()]
 
     @property
     def devices_map(self):
         """
-        Returns a dict where the keys are device types and values are lists
-        of devices of that type.
+            Returns a dict where the keys are device types and values are lists
+            of devices of that type.
         """
         devices = {}
 
@@ -505,19 +504,21 @@ class NetworkManager(object):
 
     @property
     def connections(self):
+        """ Returns a list of connections. """
         return [Connection(self.bus, path)
-        for path in self.settings.ListConnections(dbus_interface=NM_SETTINGS_NAME)]
+                for path in self.settings.ListConnections(dbus_interface=NM_SETTINGS_NAME)]
 
     @property
     def active_connections(self):
+        """ Returns a list of active connections. """
         return [ActiveConnection(self.bus, path) \
                     for path in self.proxy.Get(NM_NAME, "ActiveConnections")]
 
     @property
     def connections_map(self):
         """
-        Returns a dict where the keys are uuids and the values are the
-        corresponding connection objects
+            Returns a dict where the keys are uuids and the values are the
+            corresponding connection objects.
         """
         connections = {}
 
@@ -529,69 +530,85 @@ class NetworkManager(object):
 
     @property
     def wireless_enabled(self):
-        """Indicates if wireless is currently enabled or not."""
+        """ Indicates if wireless is currently enabled or not. """
         return self.proxy.Get(NM_NAME, "WirelessEnabled",
             dbus_interface=DBUS_PROPS_NAME) != 0
 
     @wireless_enabled.setter
     def wireless_enabled(self, state):
-        """Sets whether wireless should be enabled or not."""
+        """ Sets whether wireless should be enabled or not. """
         self.proxy.Set(NM_NAME, "WirelessEnabled", dbus.Boolean(state),
             dbus_interface=DBUS_PROPS_NAME)
 
     @property
     def wireless_hardware_enabled(self):
         """
-        Indicates if the wireless hardware is currently
-        enabled, i.e. the state of the RF kill switch.
+            Indicates if the wireless hardware is currently
+            enabled, i.e. the state of the RF kill switch.
         """
         return self.proxy.Get(NM_NAME, "WirelessHardwareEnabled",
             dbus_interface=DBUS_PROPS_NAME) != 0
 
     @property
     def state(self):
-        """
-        Describes the overall state of the daemon.
-        """
+        """ Describes the overall state of the daemon."""
         return State.from_value(self.proxy.Get(NM_NAME, "State"))
 
     def get_connection(self, uuid):
         """
-        Returns a single connection given a connection UUID, or None if no
-        connection exists with that UUID
+            Returns a single connection given a connection UUID, or None if no
+            connection exists with that UUID.
         """
         return self.connections_map.get(uuid)
 
     def get_connections_by_id(self, id):
         """
-        Returns a list of connections that have the specified id, or None
-        if no connections exist with that id
+            Returns a list of connections that have the specified id, or None
+            if no connections exist with that id.
         """
         return filter(lambda con: con.settings.id == id, self.connections) or None
 
     def add_connection(self, settings):
+        """ Add a system connection for given settings."""
         self.settings.AddConnection(settings._settings, dbus_interface=NM_SETTINGS_NAME)
 
     def activate_connection(self, connection, device=None, \
                             service_name="org.freedesktop.NetworkManagerSystemSettings", \
-                            specific_object="/", guess_device=False, interface=None):
+                            specific_object="/"):
+        """
+            Activates given connection on given device
+            If no devices provided it will try to find proper device.
+        """
 
-        if device:
-            pass
-        elif interface or connection.settings.mac_address:
-            device = self.get_device(mac_address = connection.settings.mac_address, interface = interface)
-        elif guess_device:
-            device = self.get_device(type = str(connection.settings.type))
+        # If connection has mac_address and not device given
+        # Try to find proper device for this mac
+        if connection.settings.mac_address and not device:
+            device = self.get_device(mac_address = connection.settings.mac_address)
 
+        # If still there is no device available
+        # Try to find proper device for given connection by using its type
         if not device:
-            return
+            device = self.get_device(type = str(connection.settings.type))
 
         self.proxy.ActivateConnection(service_name, connection.proxy, device.proxy, specific_object, dbus_interface=NM_NAME)
 
+    def activate_connection_for_interface(self, connection, interface):
+        """
+            Activates given connection on given interface
+            If no devices provided it tries to find proper device.
+        """
+        device = self.get_device(interface = interface)
+        if not device:
+            return
+
+        self.active_connection(connection, device)
+
     def deactivate_connection(self, active_connection):
+        """ Deactivates given connection on given device."""
         self.proxy.DeactivateConnection(active_connection, dbus_interface=NM_NAME)
 
     def disconnect_connection_devices(self, connection):
+        """ Disconnects all devices which uses given connection."""
         for active_conn in self.active_connections:
             if active_conn.connection.settings.id == connection.settings.id:
                 for device in active_conn.devices:
@@ -599,9 +616,7 @@ class NetworkManager(object):
                 break
 
     def get_device(self, type=None, mac_address=None, interface=None):
-        """
-        Return device object from given mac_address or first device for given type
-        """
+        """ Return device object from given mac_address or first device for given type. """
         types = {
                         '802-11-wireless'   : DeviceType.WIFI,
                         '802-3-ethernet'    : DeviceType.ETHERNET,
