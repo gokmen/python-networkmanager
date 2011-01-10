@@ -544,18 +544,16 @@ class NetworkManager(object):
     def add_connection(self, settings):
         self.settings.AddConnection(settings._settings, dbus_interface=NM_SETTINGS_NAME)
 
-    def activate_connection(self, connection, device=None, service_name="org.freedesktop.NetworkManagerSystemSettings", specific_object="/", guess_device=False, interface=None):
-        if not device and interface:
-            for device in self.devices:
-                if device.interface == interface:
-                    conn_mac_addr = connection.settings.mac_address
-                    if conn_mac_addr is None or str(conn_mac_addr) == str(device.hwaddress):
-                        break
-                device = None
+    def activate_connection(self, connection, device=None, \
+                            service_name="org.freedesktop.NetworkManagerSystemSettings", \
+                            specific_object="/", guess_device=False, interface=None):
 
-        if guess_device:
-            if connection.settings.mac_address:
-                device = self.get_device(mac_address = connection.settings.mac_address)
+        if device:
+            pass
+        elif interface or connection.settings.mac_address:
+            device = self.get_device(mac_address = connection.settings.mac_address, interface = interface)
+        elif guess_device:
+            device = self.get_device(type = str(connection.settings.type))
 
         if not device:
             return
@@ -600,7 +598,7 @@ class NetworkManager(object):
         """
         return State.from_value(self.proxy.Get(NM_NAME, "State"))
 
-    def get_device(self, type=None, mac_address=None):
+    def get_device(self, type=None, mac_address=None, interface=None):
         """
         Return device object from given mac_address or first device for given type
         """
@@ -612,20 +610,29 @@ class NetworkManager(object):
                     #   'unknown'           : [],
                 }
 
-        devices = None
-        if not type == None:
-            device_type = types[type]
-            devices = self.devices_map[device_type]
-        else:
-            devices = self.devices
+        # Try to find proper device object for given interface
+        if not interface == None:
+            for device in self.devices:
+                # If connection is restricted for one device; try to find its mac_address,
+                # otherwise just use the first device which has same interface name
+                if device.interface == interface:
+                    if mac_address:
+                        if str(mac_address) == str(device.hwaddress):
+                            return device
+                    else:
+                        return device
 
-        if not mac_address == None:
-            for dev in devices:
-                if mac_address == dev.hwaddress:
-                    return dev
+        elif not type == None:
+            if type in types:
+                device_type = types[type]
+                devices = self.devices_map[device_type]
+                if len(devices) > 0:
+                    return devices[0]
 
-        if len(devices) > 0:
-            return devices[0]
+        elif not mac_address == None:
+            for device in self.devices:
+                if str(mac_address) == str(device.hwaddress):
+                    return device
 
         return None
 
