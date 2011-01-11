@@ -1,5 +1,9 @@
-python-networkmanager
+
+Python NetworkManager
 ---------------------
 
-Python Interface for NetworkManager over D-Bus
+A Python interface to NetworkManager over DBus. Designed to hide
+the complexities of python-dbus and provide a simplified api to
+interacting with network manager to control network configuration
+tasks.
 

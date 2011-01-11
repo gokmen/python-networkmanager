@@ -42,6 +42,7 @@ def main():
           author_email="mark.renouf@gmail.com",
           maintainer="Gökmen Göksel",
           maintainer_email="gokmen@pardus.org.tr",
+          url="https://github.com/gokmen/python-networkmanager",
           license="LGPL",
           platforms="UNIX",
           long_description="""\
