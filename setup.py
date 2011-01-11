@@ -2,6 +2,7 @@
 
 # setup.py --- Setup script for python-networkmanager
 # Copyright (c) 2002, 2003, 2004 Florent Rougon
+# Copyright (c) 2010 Gökmen Göksel
 #
 # This file is part of python-networkmanager.
 #
@@ -30,7 +31,7 @@ from distutils.core import setup
 #  Python 2.2.
 
 PACKAGE = "python-networkmanager"
-VERSION = "0.1"
+VERSION = "0.2"
 
 def main():
     setup(name=PACKAGE,
@@ -38,8 +39,8 @@ def main():
           description="A Python interface to NetworkManager via DBus",
           author="Mark Renouf",
           author_email="mark.renouf@gmail.com",
-          maintainer="Mark Renouf",
-          maintainer_email="mark.renouf@gmail.com",
+          maintainer="Gökmen Göksel",
+          maintainer_email="gokmen@pardus.org.tr",
           license="LGPL",
           platforms="UNIX",
           long_description="""\
