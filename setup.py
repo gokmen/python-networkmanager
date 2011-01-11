@@ -3,7 +3,7 @@
 
 # setup.py --- Setup script for python-networkmanager
 # Copyright (c) 2002, 2003, 2004 Florent Rougon
-# Copyright (c) 2010 Gökmen Göksel
+# Copyright (c) 2011 Gökmen Göksel
 #
 # This file is part of python-networkmanager.
 #
