@@ -672,6 +672,10 @@ class ActiveConnection(object):
         self.bus = bus
         self.proxy = bus.get_object(NM_NAME, path)
 
+    def __eq__(self, other):
+        return self.connection.settings.uuid == other.connection.settings.uuid and\
+               self.connection.settings.id == other.connection.settings.id
+
     def __repr__(self):
         return "<ActiveConnection: %s>" % self.connection.settings.id
 
@@ -711,6 +715,9 @@ class ActiveConnection(object):
 class Connection(object):
     def __init__(self, bus, path):
         self.proxy = bus.get_object(NM_NAME, path);
+
+    def __eq__(self, other):
+        return self.settings.uuid == other.settings.uuid and self.settings.id == other.settings.id
 
     def __repr__(self):
         return "<Connection: \"%s\">" % self.settings.id
