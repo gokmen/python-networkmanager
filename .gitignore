@@ -3,3 +3,5 @@
 *.src.tar.gz
 tags
 build
+dist
+MANIFEST
