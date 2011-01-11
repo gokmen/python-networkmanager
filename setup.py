@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+# -*- coding: utf-8 -*-
 
 # setup.py --- Setup script for python-networkmanager
 # Copyright (c) 2002, 2003, 2004 Florent Rougon
