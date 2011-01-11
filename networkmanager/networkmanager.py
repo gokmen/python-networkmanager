@@ -517,7 +517,9 @@ class NetworkManager(object):
     @property
     def available_connections(self):
         """ Returns a list of available connections. """
-        return filter(lambda connection: self.get_device_for_connection(connection).state.value > 2, self.connections)
+        return filter(lambda connection: 0 if not self.get_device_for_connection(connection) \
+                                           else self.get_device_for_connection(connection).state.value > 2,
+                                        self.connections)
 
     @property
     def connections_map(self):
@@ -638,9 +640,10 @@ class NetworkManager(object):
         elif not type == None:
             if type in types:
                 device_type = types[type]
-                devices = self.devices_map[device_type]
-                if len(devices) > 0:
-                    return devices[0]
+                if device_type in self.devices_map:
+                    devices = self.devices_map[device_type]
+                    if len(devices) > 0:
+                        return devices[0]
 
         elif not mac_address == None:
             for device in self.devices:
